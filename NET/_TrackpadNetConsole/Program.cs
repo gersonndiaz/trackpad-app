@@ -41,14 +41,33 @@ if (!device.Gatt.IsConnected)
 
 Console.WriteLine("✅ Conectado. Explorando servicios...");
 
-foreach (var service in await device.Gatt.GetPrimaryServicesAsync())
+try
 {
-    Console.WriteLine($"🔧 Servicio: {service.Uuid}");
-
-    foreach (var characteristic in await service.GetCharacteristicsAsync())
+    var services = await device.Gatt.GetPrimaryServicesAsync();
+    foreach (var service in services)
     {
-        Console.WriteLine($"  🧬 Característica: {characteristic.Uuid}");
+        Console.WriteLine($"🔧 Servicio: {service.Uuid}");
+
+        try
+        {
+            var characteristics = await service.GetCharacteristicsAsync();
+            foreach (var characteristic in characteristics)
+            {
+                Console.WriteLine($"  🧬 Característica: {characteristic.Uuid}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ⚠️ Error al obtener características: {ex.Message}");
+        }
     }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"❌ Error al explorar servicios: {ex.Message}");
 }
 
 Console.WriteLine("🎯 Fin de exploración.");
+
+// Si BluetoothDevice implementa IDisposable, descomenta la siguiente línea:
+// device?.Dispose();
