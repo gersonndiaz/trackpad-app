@@ -145,7 +145,7 @@ class Program
                     // Win+Ctrl+LeftArrow
                     sim.Keyboard.ModifiedKeyStroke(
                         new[] { VirtualKeyCode.LWIN, VirtualKeyCode.CONTROL },
-                        VirtualKeyCode.LEFT);
+                        VirtualKeyCode.RIGHT);
                 }
                 else if (isMac)
                 {
@@ -163,7 +163,7 @@ class Program
                     // Win+Ctrl+RightArrow
                     sim.Keyboard.ModifiedKeyStroke(
                         new[] { VirtualKeyCode.LWIN, VirtualKeyCode.CONTROL },
-                        VirtualKeyCode.RIGHT);
+                        VirtualKeyCode.LEFT);
                 }
                 else if (isMac)
                 {
