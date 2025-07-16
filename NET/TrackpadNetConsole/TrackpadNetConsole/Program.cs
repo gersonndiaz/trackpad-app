@@ -28,67 +28,57 @@ class Program
 
     static async Task Main()
     {
-        // Iniciamos en paralelo 1) broadcast UDP 2) servidor TCP
+        // Iniciamos en paralelo 1) broadcast UDP  2) servidor TCP
         _ = BroadcastDiscovery();   // Corre en background
         await StartTcpServer();     // Atiende conexiones TCP
     }
 
     /// <summary>
-    /// Envía cada 2 segundos un paquete UDP broadcast con
-    /// { name, ip, port } para que las apps Flutter lo descubran.
+    /// 1) Envía cada 2 segundos un paquete UDP broadcast con:
+    ///    { name, ip, port } para que las apps Flutter lo descubran.
     /// </summary>
     static async Task BroadcastDiscovery()
     {
-        // Creamos cliente UDP con broadcast habilitado
-        using var udp = new UdpClient { EnableBroadcast = true };
+        using var udp = new UdpClient { EnableBroadcast = true };  // Cliente UDP en modo broadcast
 
-        // Obtenemos hostname e IP local
-        string host = Dns.GetHostName();
-        string ip   = GetLocalIPv4();
+        string host = Dns.GetHostName();                           // Nombre de la máquina
+        string ip   = GetLocalIPv4();                              // IP local IPv4 no loopback
 
-        // Endpoint de broadcast: 255.255.255.255:DiscoverPort
-        var ep = new IPEndPoint(IPAddress.Broadcast, DiscoverPort);
+        var ep = new IPEndPoint(IPAddress.Broadcast, DiscoverPort); // Endpoint de broadcast
 
         Console.WriteLine($"📢 Broadcast UDP: {host}@{ip}:{TcpPort}");
         while (true)
         {
-            // Creamos objeto con info y lo serializamos a JSON
-            var info = new { name = host, ip = ip, port = TcpPort };
-            var json = JsonSerializer.Serialize(info);
-            var data = Encoding.UTF8.GetBytes(json);
+            // Serializa la información a JSON
+            var info  = new { name = host, ip = ip, port = TcpPort };
+            var json  = JsonSerializer.Serialize(info);
+            var data  = Encoding.UTF8.GetBytes(json);
 
-            // Enviamos el JSON por UDP broadcast
-            await udp.SendAsync(data, data.Length, ep);
-
-            // Esperamos 2 segundos antes de repetir
-            await Task.Delay(2000);
+            await udp.SendAsync(data, data.Length, ep);             // Envía paquete
+            await Task.Delay(2000);                                 // Espera 2s
         }
     }
 
     /// <summary>
-    /// Inicia un servidor TCP en TcpPort, acepta clientes y
-    /// despacha cada conexión a HandleClient.
+    /// 2) Inicia un servidor TCP en TcpPort, acepta clientes y
+    ///    despacha cada conexión a HandleClient.
     /// </summary>
     static async Task StartTcpServer()
     {
-        // Listener en cualquier IP local y el puerto TcpPort
-        var listener = new TcpListener(IPAddress.Any, TcpPort);
+        var listener = new TcpListener(IPAddress.Any, TcpPort);    // Listener en cualquier IP
         listener.Start();
         Console.WriteLine($"🎧 TCP escuchando en puerto {TcpPort}");
 
         while (true)
         {
-            // Espera a que un cliente se conecte
-            var client = await listener.AcceptTcpClientAsync();
+            var client = await listener.AcceptTcpClientAsync();    // Acepta nuevo cliente
             Console.WriteLine("🔗 Cliente conectado");
-
-            // Maneja cada cliente de forma asíncrona
-            _ = HandleClient(client);
+            _ = HandleClient(client);                              // Lo maneja en background
         }
     }
 
     /// <summary>
-    /// Lee datos del cliente línea a línea y llama a PerformAction.
+    /// 3) Lee datos del cliente línea a línea y llama a PerformAction.
     /// </summary>
     static async Task HandleClient(TcpClient client)
     {
@@ -100,155 +90,161 @@ class Program
             int bytesRead;
             try
             {
-                // Lee hasta 1024 bytes
-                bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length); // Lee hasta 1024 bytes
             }
             catch
             {
-                // Error de red o desconexión
-                break;
+                break;                                                // Error de red
             }
 
-            // Si no se leyeron bytes, el cliente cerró la conexión
-            if (bytesRead == 0) break;
+            if (bytesRead == 0) break;                                // Cliente cerró
 
-            // Convertimos bytes a string y eliminamos salto de línea
+            // Convierte bytes a string y trim de saltos
             var message = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
             Console.WriteLine($"📨 Recibido: {message}");
 
-            // Interpretamos y ejecutamos la acción
-            PerformAction(message);
+            PerformAction(message);                                  // Ejecuta la acción
         }
 
         Console.WriteLine("🔌 Cliente desconectado");
     }
 
     /// <summary>
-    /// Mapea los mensajes de gesto a atajos de teclado/ratón según SO.
-    /// El cambio de escritorio invierte el sentido tal como trackpads profesionales.
+    /// 4) Mapea los mensajes de gesto a atajos de teclado/ratón según SO.
+    ///    El cambio de escritorio invierte el sentido tal como trackpads profesionales.
     /// </summary>
     static void PerformAction(string msg)
     {
-        // InputSimulator para Windows
-        var sim = new InputSimulator();
-
-        // Detecta el sistema operativo actual
+        var sim = new InputSimulator();                            // Para Windows
         bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         bool isMac     = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
 
         switch (msg)
         {
-            // Swipe hacia la derecha: mover al escritorio anterior (flecha izquierda)
+            // ➡️ Swipe a la derecha → ir al escritorio anterior (flecha izquierda)
             case "➡️ Cambio escritorio":
                 if (isWindows)
                 {
-                    // Win+Ctrl+LeftArrow
-                    sim.Keyboard.ModifiedKeyStroke(
-                        new[] { VirtualKeyCode.LWIN, VirtualKeyCode.CONTROL },
-                        VirtualKeyCode.RIGHT);
-                }
-                else if (isMac)
-                {
-                    // Control+Command+LeftArrow via AppleScript
-                    RunAppleScript(
-                        "tell application \"System Events\" to key code 123 using {control down, command down}"
-                    );
-                }
-                break;
-
-            // Swipe hacia la izquierda: mover al escritorio siguiente (flecha derecha)
-            case "⬅️ Cambio escritorio":
-                if (isWindows)
-                {
-                    // Win+Ctrl+RightArrow
                     sim.Keyboard.ModifiedKeyStroke(
                         new[] { VirtualKeyCode.LWIN, VirtualKeyCode.CONTROL },
                         VirtualKeyCode.LEFT);
                 }
                 else if (isMac)
                 {
+                    // En macOS, solo control para cambio de escritorio (no command)
                     RunAppleScript(
-                        "tell application \"System Events\" to key code 124 using {control down, command down}"
+                      "tell application \"System Events\" to key code 124 using {control down}"
                     );
                 }
                 break;
 
-            // Scroll horizontal derecha
+            // ⬅️ Swipe a la izquierda → ir al escritorio siguiente (flecha derecha)
+            case "⬅️ Cambio escritorio":
+                if (isWindows)
+                {
+                    sim.Keyboard.ModifiedKeyStroke(
+                        new[] { VirtualKeyCode.LWIN, VirtualKeyCode.CONTROL },
+                        VirtualKeyCode.RIGHT);
+                }
+                else if (isMac)
+                {
+                    RunAppleScript(
+                      "tell application \"System Events\" to key code 123 using {control down}"
+                    );
+                }
+                break;
+
+            // ➡️ Scroll H derecha
             case "➡️ Scroll H":
-                if (isWindows)
-                    sim.Mouse.HorizontalScroll(1);
+                if (isWindows) sim.Mouse.HorizontalScroll(1);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to do shell script \"osascript -e 'key code 124'\"");
+                    RunAppleScript(
+                      "tell application \"System Events\" to key code 124"
+                    );
                 break;
 
-            // Scroll horizontal izquierda
+            // ⬅️ Scroll H izquierda
             case "⬅️ Scroll H":
-                if (isWindows)
-                    sim.Mouse.HorizontalScroll(-1);
+                if (isWindows) sim.Mouse.HorizontalScroll(-1);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to key code 123");
+                    RunAppleScript(
+                      "tell application \"System Events\" to key code 123"
+                    );
                 break;
 
-            // Scroll vertical abajo
+            // ⬇️ Scroll V abajo
             case "⬇️ Scroll V":
-                if (isWindows)
-                    sim.Mouse.VerticalScroll(-1);
+                if (isWindows) sim.Mouse.VerticalScroll(-1);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to key code 125");
+                    RunAppleScript(
+                      "tell application \"System Events\" to key code 125"
+                    );
                 break;
 
-            // Scroll vertical arriba
+            // ⬆️ Scroll V arriba
             case "⬆️ Scroll V":
-                if (isWindows)
-                    sim.Mouse.VerticalScroll(1);
+                if (isWindows) sim.Mouse.VerticalScroll(1);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to key code 126");
+                    RunAppleScript(
+                      "tell application \"System Events\" to key code 126"
+                    );
                 break;
 
-            // Zoom in (2 dedos separándose)
+            // 🔍 Zoom+ (Ctrl/Cmd +)
             case "🔍 Zoom+":
                 if (isWindows)
-                    // Ctrl+'+' 
                     sim.Keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.OEM_PLUS);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to keystroke \"+\" using {command down}");
+                    RunAppleScript(
+                      "tell application \"System Events\" to keystroke \"+\" using {command down}"
+                    );
                 break;
 
-            // Zoom out (2 dedos acercándose)
+            // 🔎 Zoom- (Ctrl/Cmd -)
             case "🔎 Zoom-":
                 if (isWindows)
                     sim.Keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.OEM_MINUS);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to keystroke \"-\" using {command down}");
+                    RunAppleScript(
+                      "tell application \"System Events\" to keystroke \"-\" using {command down}"
+                    );
                 break;
 
-            // Pinch+ de 5 dedos: abrir Task View / Mission Control
+            // 🖐️🔍 Pinch+ de 5 dedos → Task View / Mission Control
             case "🖐️🔍 Pinch+ de 5":
                 if (isWindows)
                     sim.Keyboard.ModifiedKeyStroke(VirtualKeyCode.LWIN, VirtualKeyCode.TAB);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to key code 48 using {control down, command down}");
+                    RunAppleScript(
+                      // Escape (key code 53) cierra Mission Control
+                      "tell application \"System Events\" to key code 103"
+                    );
                 break;
 
-            // Pinch- de 5 dedos: cerrar Task View / salir de Mission Control
+            // 🖐️🔎 Pinch- de 5 dedos → cerrar Task View / Mission Control
             case "🖐️🔎 Pinch- de 5":
                 if (isWindows)
                     sim.Keyboard.KeyPress(VirtualKeyCode.ESCAPE);
                 else if (isMac)
-                    RunAppleScript("tell application \"System Events\" to key code 53");
+                    RunAppleScript(
+                      // F4 (key code 118) abre el Launchpad (menú de aplicaciones)
+                      "tell application \"System Events\" to key code 130"
+                    );
                 break;
         }
     }
 
     /// <summary>
-    /// Ejecuta un comando AppleScript en macOS.
+    /// Ejecuta un comando AppleScript en macOS (una sola línea).
     /// </summary>
     static void RunAppleScript(string script)
     {
+        // Escapa las comillas dobles para AppleScript
+        string safeScript = script.Replace("\"", "\\\"");
         Process.Start(new ProcessStartInfo
         {
             FileName               = "osascript",      // Ejecutable de AppleScript
-            Arguments              = $"-e \"{script}\"",// Código a ejecutar
+            Arguments              = $"-e \"{safeScript}\"", // Línea de script escapada
             RedirectStandardOutput = true,
             UseShellExecute        = false
         });
@@ -261,10 +257,11 @@ class Program
     {
         foreach (var addr in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
         {
-            if (addr.AddressFamily == AddressFamily.InterNetwork)
+            if (addr.AddressFamily == AddressFamily.InterNetwork
+             && !IPAddress.IsLoopback(addr))
                 return addr.ToString();
         }
-        // Fallback si no se encuentra
+        // Fallback si algo falla
         return "127.0.0.1";
     }
 }
